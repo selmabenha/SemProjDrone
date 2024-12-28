@@ -1,0 +1,28 @@
+#!/bin/bash
+#SBATCH --ntasks-per-node=1
+#SBATCH -A cs433
+#SBATCH -q cs433
+#SBATCH --gres=gpu:1
+#SBATCH --mem=300G
+#SBATCH --time=48:00:00
+#SBATCH --output logs/log_%j.log
+#SBATCH --error logs/error_%j.err  # Separate error log
+
+# Activate the virtual environment
+source /home/finette/VideoStitching/selma/selmaEnv/bin/activate
+
+# Navigate to the directory containing the script
+cd /home/finette/VideoStitching/selma
+
+# Print the Python version and path
+echo "Python version: $(python --version)"
+echo "Python executable: $(which python)"
+
+# Print current directory
+echo "Current directory: $(pwd)"
+
+# Execute the script
+python /home/finette/VideoStitching/selma/test_point.py > logs/out_%j.out 2>&1
+
+
+deactivate
