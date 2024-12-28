@@ -1,0 +1,16 @@
+Stitching_Tutorial
+OpticalFlow-and-Stitching
+Galatsi_Dataset_archive
+LightGlue
+bin
+lib
+lib64
+logs
+output_frames
+selmaEnv
+share
+output/extracted_frames
+.DS_Store
+output/.DS_Store
+output/images/.DS_Store
+output/textfiles/.DS_Store
