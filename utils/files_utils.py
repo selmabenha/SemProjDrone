@@ -8,14 +8,14 @@ import re
 from PIL import Image
 import ast
 
-logging.basicConfig(
-    level=logging.DEBUG,  # Set the minimum level of messages to capture
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("logs/script.log"),  # Write logs to this file
-        logging.StreamHandler()  # Optionally, also logging.info to console
-    ]
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,  # Set the minimum level of messages to capture
+#     format='%(asctime)s - %(levelname)s - %(message)s',
+#     handlers=[
+#         logging.FileHandler("logs/script.log"),  # Write logs to this file
+#         logging.StreamHandler()  # Optionally, also logging.info to console
+#     ]
+# )
 
 def get_images_frames(image_paths):
     # Create a list of tuples (frame_number, image_path)

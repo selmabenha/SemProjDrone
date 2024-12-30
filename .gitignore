@@ -14,3 +14,6 @@ output/extracted_frames
 output/.DS_Store
 output/images/.DS_Store
 output/textfiles/.DS_Store
+DJI_0763
+tracking_small
+utils/__pycache__

@@ -15,14 +15,14 @@ from PIL import Image
 
 min_matches = 1000  # Threshold for minimal matches before there is a problem
 
-logging.basicConfig(
-    level=logging.DEBUG,  # Set the minimum level of messages to capture
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("logs/script.log"),  # Write logs to this file
-        logging.StreamHandler()  # Optionally, also logging.info to console
-    ]
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,  # Set the minimum level of messages to capture
+#     format='%(asctime)s - %(levelname)s - %(message)s',
+#     handlers=[
+#         logging.FileHandler("logs/script.log"),  # Write logs to this file
+#         logging.StreamHandler()  # Optionally, also logging.info to console
+#     ]
+# )
 
 torch.set_grad_enabled(False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 'mps', 'cpu'
@@ -30,7 +30,7 @@ extractor = DoGHardNet(max_num_keypoints=None).eval().to(device)  # load the ext
 matcher = LightGlue(features="doghardnet").eval().to(device)
 
 
-output_folder = "/home/finette/VideoStitching/selma/output/images/test_transform"
+output_folder = "output/images/test_transform"
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 ### Revelant Functions

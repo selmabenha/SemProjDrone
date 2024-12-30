@@ -12,21 +12,41 @@ from utils import *
 from PIL import Image
 import argparse
 
-logging.basicConfig(
-    level=logging.DEBUG,  # Set the minimum level of messages to capture
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("logs/script.log"),  # Write logs to this file
-        logging.StreamHandler()  # Optionally, also logging.info to console
-    ]
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,  # Set the minimum level of messages to capture
+#     format='%(asctime)s - %(levelname)s - %(message)s',
+#     handlers=[
+#         logging.FileHandler("logs/script.log"),  # Write logs to this file
+#         logging.StreamHandler()  # Optionally, also logging.info to console
+#     ]
+# )
 
-logging.info("run script - transform")
+# logging.info("run script - transform")
 
 # Paths
-tracking_folder = "/home/finette/VideoStitching/transform_small"
-frames_file = "/home/finette/VideoStitching/selma/output/textfiles/transform_recording/full_frames_list.txt"
-transforms_file = "/home/finette/VideoStitching/selma/output/textfiles/transform_recording/all_transform_matrices.txt"
+tracking_folder = Path("tracking_small")
+frames_file = "/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/transform_recording/full_frames_list.txt"
+transforms_file = "/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/transform_recording/all_transform_matrices.txt"
+displacement_file = "drone_coords_new.csv"
+
+import pandas as pd
+
+def extract_pix_displacement(displacement_file):
+    # Read the CSV file
+    df = pd.read_csv(f"{displacement_file}")
+    
+    # Access the 'pix_med_displacement_vector_wrt_ref' column and convert it to a NumPy array
+    pix_displacement = df['pix_med_displacement_vector_wrt_ref'].to_numpy()
+    
+    # Return the array (optional)
+    return pix_displacement
+
+def remove_drone_displacement(tracking_folder, displacement_file):
+    pix_displacement = extract_pix_displacement(displacement_file)
+    for track_path, pix_dist in zip(tracking_folder, pix_displacement):
+        points = load_track_points(str(track_path))
+        for point in points: point[1:8:2]+= pix_dist 
+        save_track_points(str(track_path), points)
 
 
 def process_iterations_with_matrices(full_frames_list, base_folder, transformation_matrices):
@@ -71,5 +91,7 @@ def process_iterations_with_matrices(full_frames_list, base_folder, transformati
             print(f"  Skipping iteration {iteration + 1} as it has no valid pairs.")
             break
 
-frame_ranges, transformation_matrices = read_images_frames(frames_file, transforms_file)
-process_iterations_with_matrices(frame_ranges, tracking_folder, transformation_matrices)
+# frame_ranges, transformation_matrices = read_images_frames(frames_file, transforms_file)
+# process_iterations_with_matrices(frame_ranges, str(tracking_folder), transformation_matrices)
+
+remove_drone_displacement(tracking_folder, displacement_file)
