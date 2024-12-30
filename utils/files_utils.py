@@ -39,7 +39,7 @@ def get_images_frames(image_paths):
 
         # Determine the frame number range for the image
         if i == len(image_with_frame_numbers) - 1:
-            frame_range = (frame_number, 799)  # Last image, map it to the end CHANGE LATERRRRRRRRRRRRR
+            frame_range = (frame_number, 7517)  # Last image, map it to the end CHANGE LATERRRRRRRRRRRRR
         else:
             frame_range = (frame_number, image_with_frame_numbers[i + 1][0] - 1)  # Normal case
 

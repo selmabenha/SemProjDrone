@@ -13,16 +13,16 @@ from .disp_utils import *
 
 from PIL import Image
 
-min_matches = 1000  # Threshold for minimal matches before there is a problem
+min_matches = 500  # Threshold for minimal matches before there is a problem
 
-# logging.basicConfig(
-#     level=logging.DEBUG,  # Set the minimum level of messages to capture
-#     format='%(asctime)s - %(levelname)s - %(message)s',
-#     handlers=[
-#         logging.FileHandler("logs/script.log"),  # Write logs to this file
-#         logging.StreamHandler()  # Optionally, also logging.info to console
-#     ]
-# )
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the minimum level of messages to capture
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("logs/script.log"),  # Write logs to this file
+        logging.StreamHandler()  # Optionally, also logging.info to console
+    ]
+)
 
 torch.set_grad_enabled(False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 'mps', 'cpu'
@@ -30,7 +30,7 @@ extractor = DoGHardNet(max_num_keypoints=None).eval().to(device)  # load the ext
 matcher = LightGlue(features="doghardnet").eval().to(device)
 
 
-output_folder = "output/images/test_transform"
+output_folder = "/home/finette/VideoStitching/selma/output/images/base_out"
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 ### Revelant Functions
@@ -59,7 +59,7 @@ def create_center_mask(image, center_fraction):
 
 # Modify the 'extract_matches' function to move images and tensors to the device
 def extract_matches(image0, image1, center_filter, disp):
-    # Ensure input images are on the device
+    # # Ensure input images are on the device
     image0 = image0.to(device)
     image1 = image1.to(device)
 
@@ -71,8 +71,8 @@ def extract_matches(image0, image1, center_filter, disp):
     masked_image0 = image0 * mask0
     masked_image1 = image1 * mask1
 
-    feats0 = extractor.extract(masked_image0)
-    feats1 = extractor.extract(masked_image1)
+    feats0 = extractor.extract(masked_image0.to(device))
+    feats1 = extractor.extract(masked_image1.to(device))
     matches01 = matcher({"image0": feats0, "image1": feats1})
     feats0, feats1, matches01 = [
         rbd(x) for x in [feats0, feats1, matches01]
@@ -151,62 +151,50 @@ def get_translation_matrix(all_corners):
     return translation_matrix, output_width_, output_height_
 
 def transform_images(image0_cv, image1_cv, matches0, matches1, disp):
-    # Convert images to PyTorch tensors and move them to the device
-    image0 = convert_cv_to_py(image0_cv).to(device)
-    image1 = convert_cv_to_py(image1_cv).to(device)
+    # Get image dimensions
+    h1, w1 = image0_cv.shape[:2]
+    h2, w2 = image1_cv.shape[:2]
 
     # Compute homography matrix H using OpenCV's RANSAC
     H, mask = cv2.findHomography(matches0.cpu().numpy(), matches1.cpu().numpy(), cv2.RANSAC)
-    if H is None:
-        raise ValueError("Homography matrix could not be computed. Check input matches.")
 
     # Ensure H is of type float32
     H = H.astype(np.float32)
 
     # Corners of image 0
-    corners0 = torch.tensor([[0, 0], [image0.shape[2], 0], [image0.shape[2], image0.shape[1]], [0, image0.shape[1]]], dtype=torch.float32).to(device)
-    if corners0.shape != (4, 2):
-        raise ValueError(f"Unexpected corners0 shape: {corners0.shape}")
+    corners0 = np.array([[0, 0], [w1, 0], [w1, h1], [0, h1]], dtype=np.float32)
+    # Corners of image 1
+    corners1 = np.array([[0, 0], [w2, 0], [w2, h2], [0, h2]], dtype=np.float32)
 
     # Transform corners of image 0
-    transformed_corners0 = cv2.perspectiveTransform(corners0.cpu().numpy()[None, :], H)
-    if transformed_corners0 is None:
-        raise ValueError("Perspective transformation of corners failed.")
+    transformed_corners0 = cv2.perspectiveTransform(corners0[None, :], H)[0]
 
     # Combine all corners
-    all_corners = np.vstack((transformed_corners0[0], corners0.cpu().numpy()))
+    all_corners = np.vstack((transformed_corners0, corners1))
     translation_matrix, output_width, output_height = get_translation_matrix(all_corners)
-    if output_width <= 0 or output_height <= 0:
-        raise ValueError(f"Invalid output dimensions: width={output_width}, height={output_height}")
 
     # Create a full 3x3 translation matrix
     full_translation_matrix = np.eye(3, dtype=np.float32)
-    full_translation_matrix[:2, 2] = translation_matrix[:, 2]
+    full_translation_matrix[:2, 2] = translation_matrix[:, 2]  # Use only the translation part
 
     # Warp the images
-    # Convert PyTorch tensors to OpenCV-compatible format before warping
-    image0_np = convert_py_to_cv(image0)
-    image1_np = convert_py_to_cv(image1)
+    image0_transformed = cv2.warpPerspective(image0_cv, full_translation_matrix.dot(H), (output_width, output_height))
+    image1_transformed = cv2.warpAffine(image1_cv, translation_matrix, (output_width, output_height))  # No need for [:2]
 
-    # Warp the images
-    image0_transformed = cv2.warpPerspective(image0_np, full_translation_matrix.dot(H), (output_width, output_height))
-    image1_transformed = cv2.warpAffine(image1_np, translation_matrix, (output_width, output_height))
-
-    # Optional display
     length_matches = len(matches0)
-    if disp and length_matches < min_matches:
+    if disp == True and length_matches < min_matches:
         display_transformed_images(image0_transformed, image1_transformed, length_matches, output_folder)
 
     return image0_transformed, image1_transformed, H, translation_matrix
 
-import torch
-
 def merge_images(base_img, to_merge, device):
-    # Ensure inputs are PyTorch tensors
-    if isinstance(base_img, np.ndarray):
-        base_img = torch.from_numpy(base_img).permute(2, 0, 1).float() / 255.0
-    if isinstance(to_merge, np.ndarray):
-        to_merge = torch.from_numpy(to_merge).permute(2, 0, 1).float() / 255.0
+    base_img = convert_cv_to_py(base_img)
+    to_merge = convert_cv_to_py(to_merge)
+    # # Ensure inputs are PyTorch tensors
+    # if isinstance(base_img, np.ndarray):
+    #     base_img = torch.from_numpy(base_img).permute(2, 0, 1).float() / 255.0
+    # if isinstance(to_merge, np.ndarray):
+    #     to_merge = torch.from_numpy(to_merge).permute(2, 0, 1).float() / 255.0
 
     # Ensure tensors are on the specified device
     base_img = base_img.to(device)
@@ -218,6 +206,8 @@ def merge_images(base_img, to_merge, device):
     # Update the base image with the corresponding pixels from to_merge
     base_img[all_zero_locs[0], all_zero_locs[1], all_zero_locs[2]] = to_merge[all_zero_locs[0], all_zero_locs[1], all_zero_locs[2]]
 
+    base_img = convert_py_to_cv(base_img)
+
     return base_img
 
 
@@ -228,7 +218,8 @@ def convert_cv_to_py(image_cv):
     if image_cv is None:
         raise ValueError("Received None for image_cv in convert_cv_to_py.")
     if not isinstance(image_cv, np.ndarray):
-        raise ValueError(f"Expected np.ndarray, but got {type(image_cv)}.")
+        logging.info(f"Expected np.ndarray, but got {type(image_cv)} in convert_cv_to_py.")
+        return image_cv
     if image_cv.ndim != 3 or image_cv.shape[2] != 3:
         raise ValueError(f"Image should have 3 channels (RGB/BGR), got shape: {image_cv.shape}.")
     
@@ -242,6 +233,13 @@ def convert_cv_to_py(image_cv):
     return image_py
 
 def convert_py_to_cv(image_py):
+    # Check if the input is a valid image
+    if image_py is None:
+        raise ValueError("Received None for image_py in convert_py_to_cv.")
+    if not torch.is_tensor(image_py):
+        logging.info(f"Expected tensor, but got {type(image_cv)} in convert_py_to_cv.")
+        return image_py
+
     # Ensure the tensor is on CPU and detach if it's part of a computation graph
     image_np = image_py.cpu().numpy()
 
@@ -260,13 +258,13 @@ def convert_py_to_cv(image_py):
 # COMMENT # COMMENT # COMMENT
 
 def stitch_two_images(first_cv, second_cv, disp):
-    # Extract matches
-    first_py = convert_cv_to_py(first_cv)
-    second_py = convert_cv_to_py(second_cv)
+    # # Extract matches
+    # first_py = convert_cv_to_py(first_cv)
+    # second_py = convert_cv_to_py(second_cv)
     first_cv, second_cv, matches0, matches1, best_angle, R = find_best_rotation_matches(first_cv, second_cv, 20, True)
-    if matches0 is None or len(matches0) < 4:
-        logging.info(f"Not enough matches found, skipping.")
-        return first_cv, len(matches0)
+    if matches0 is None or len(matches0) < min_matches:
+        logging.info(f"Not enough matches found, skipping. len(matches0) = {len(matches0)}")
+        return first_cv, len(matches0), []
     else:
         logging.info(f"Best angle: {best_angle} and amount of matches: {len(matches0)}")
 
@@ -292,10 +290,6 @@ def stitch_two_images(first_cv, second_cv, disp):
 def stitch_images_in_pairs(image_list, frames_list, disp):
     if len(image_list) < 2:
         logging.info("Not enough images to stitch.")
-        # Convert final images to OpenCV format if needed
-        image_list = [
-            convert_py_to_cv(img) if isinstance(img, torch.Tensor) else img for img in image_list
-        ]
         return image_list, frames_list, None
 
     current_images = image_list
@@ -314,17 +308,18 @@ def stitch_images_in_pairs(image_list, frames_list, disp):
             if i + 1 < len(current_images):
                 logging.info(f"Stitching images {i} and {i+1}")
                 stitched_image, num_matches, current_stitch_transform = stitch_two_images(current_images[i], current_images[i+1], disp)
-                next_round.append(stitched_image)
-                current_round_transform.append(current_stitch_transform)
-
-                # Merge frame ranges
-                new_frame_range = (current_frames_list[i][0], current_frames_list[i+1][1])
-                next_frames_list.append(new_frame_range)
 
                 if disp and num_matches <= min_matches:
                     display_original_merged(current_images[i], current_images[i+1], stitched_image, i, output_folder)
                     logging.info(f"Too few number of matches, stopped stitching: {num_matches}")
                     return current_images, all_transform_matrices, full_frames_list
+                else:
+                    next_round.append(stitched_image)
+                    current_round_transform.append(current_stitch_transform)
+
+                    # Merge frame ranges
+                    new_frame_range = (current_frames_list[i][0], current_frames_list[i+1][1])
+                    next_frames_list.append(new_frame_range)
 
                 i += 2
             else:
@@ -338,9 +333,24 @@ def stitch_images_in_pairs(image_list, frames_list, disp):
         current_images = next_round
         current_frames_list = next_frames_list
 
-    # Convert final images to OpenCV format if needed
-    current_images = [
-        convert_py_to_cv(img) if isinstance(img, torch.Tensor) else img for img in current_images
-    ]
-
     return current_images, all_transform_matrices, full_frames_list
+
+
+def stitch_images_pair_combos(image_list, disp): # add frames_list, transform_matrices later
+    if len(image_list) < 2:
+        logging.info("Not enough images to stitch.")
+        return image_list, None
+    
+    i = 0
+    while i < len(image_list):
+        stitched_image, num_matches, stitch_transform = stitch_two_images(image_list[i], image_list[i+1], disp)
+        if num_matches < min_matches:
+            i += 1
+        else:
+            print(f"Success! Stitched images {i} and {i+1}, with {num_matches} matches")
+            new_image_list = image_list[:i] + [stitched_image] + image_list[i+2:]
+            return new_image_list, stitch_transform
+            # DEAL WITH FRAME RANGE AND MATRIX TRANSFORMATION LATER
+    
+    print("no combos work, sorry")
+    return image_list, None
