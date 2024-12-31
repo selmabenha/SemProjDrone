@@ -1,4 +1,4 @@
-"['frame_number', 'latitude', 'longitude', 'gps_displacement_wrt_ref', 'pix_med_displacement_vector_wrt_ref', 'is_reference']"
+frame_number,latitude,longitude,gps_displacement_wrt_ref,pix_displacement_wrt_ref,is_reference
 1,38.012993,23.753021,0.0,0.0,True
 2,38.012993,23.753021,0.0,0.0,False
 3,38.012993,23.753021,0.0,0.0,False

@@ -11,9 +11,12 @@ selmaEnv
 share
 output/extracted_frames
 .DS_Store
+output/videos
 output/.DS_Store
 output/images/.DS_Store
 output/textfiles/.DS_Store
 DJI_0763
+DJI_0763_tracking
+DJI_0763_tracking copy
 tracking_small
 utils/__pycache__

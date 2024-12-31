@@ -15,14 +15,14 @@ from PIL import Image
 
 min_matches = 500  # Threshold for minimal matches before there is a problem
 
-logging.basicConfig(
-    level=logging.DEBUG,  # Set the minimum level of messages to capture
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("logs/script.log"),  # Write logs to this file
-        logging.StreamHandler()  # Optionally, also logging.info to console
-    ]
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,  # Set the minimum level of messages to capture
+#     format='%(asctime)s - %(levelname)s - %(message)s',
+#     handlers=[
+#         logging.FileHandler("logs/script.log"),  # Write logs to this file
+#         logging.StreamHandler()  # Optionally, also logging.info to console
+#     ]
+# )
 
 torch.set_grad_enabled(False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 'mps', 'cpu'
@@ -30,7 +30,7 @@ extractor = DoGHardNet(max_num_keypoints=None).eval().to(device)  # load the ext
 matcher = LightGlue(features="doghardnet").eval().to(device)
 
 
-output_folder = "/home/finette/VideoStitching/selma/output/images/base_out"
+output_folder = "/Users/selmabenhassine/Desktop/SemProjDrone/output"
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 ### Revelant Functions
@@ -218,7 +218,7 @@ def convert_cv_to_py(image_cv):
     if image_cv is None:
         raise ValueError("Received None for image_cv in convert_cv_to_py.")
     if not isinstance(image_cv, np.ndarray):
-        logging.info(f"Expected np.ndarray, but got {type(image_cv)} in convert_cv_to_py.")
+        print(f"Expected np.ndarray, but got {type(image_cv)} in convert_cv_to_py.")
         return image_cv
     if image_cv.ndim != 3 or image_cv.shape[2] != 3:
         raise ValueError(f"Image should have 3 channels (RGB/BGR), got shape: {image_cv.shape}.")
@@ -237,7 +237,7 @@ def convert_py_to_cv(image_py):
     if image_py is None:
         raise ValueError("Received None for image_py in convert_py_to_cv.")
     if not torch.is_tensor(image_py):
-        logging.info(f"Expected tensor, but got {type(image_cv)} in convert_py_to_cv.")
+        print(f"Expected tensor, but got {type(image_cv)} in convert_py_to_cv.")
         return image_py
 
     # Ensure the tensor is on CPU and detach if it's part of a computation graph
@@ -263,15 +263,15 @@ def stitch_two_images(first_cv, second_cv, disp):
     # second_py = convert_cv_to_py(second_cv)
     first_cv, second_cv, matches0, matches1, best_angle, R = find_best_rotation_matches(first_cv, second_cv, 20, True)
     if matches0 is None or len(matches0) < min_matches:
-        logging.info(f"Not enough matches found, skipping. len(matches0) = {len(matches0)}")
+        print(f"Not enough matches found, skipping. len(matches0) = {len(matches0)}")
         return first_cv, len(matches0), []
     else:
-        logging.info(f"Best angle: {best_angle} and amount of matches: {len(matches0)}")
+        print(f"Best angle: {best_angle} and amount of matches: {len(matches0)}")
 
     # Transform images and stitch together
     first_transformed, second_transformed, H, T = transform_images(first_cv, second_cv, matches0, matches1, disp)
     if np.isnan(H).any() or np.isinf(H).any():
-        logging.info(f"Invalid homography matrix, skipping.")
+        print(f"Invalid homography matrix, skipping.")
         return first_cv
 
     # Merge
@@ -289,7 +289,7 @@ def stitch_two_images(first_cv, second_cv, disp):
 
 def stitch_images_in_pairs(image_list, frames_list, disp):
     if len(image_list) < 2:
-        logging.info("Not enough images to stitch.")
+        print("Not enough images to stitch.")
         return image_list, frames_list, None
 
     current_images = image_list
@@ -298,7 +298,7 @@ def stitch_images_in_pairs(image_list, frames_list, disp):
     all_transform_matrices = []
 
     while len(current_images) > 1:
-        logging.info(f"Stitching {len(current_images)} images...")
+        print(f"Stitching {len(current_images)} images...")
         next_round = []
         next_frames_list = []
         current_round_transform = []
@@ -306,12 +306,12 @@ def stitch_images_in_pairs(image_list, frames_list, disp):
         i = 0
         while i < len(current_images):
             if i + 1 < len(current_images):
-                logging.info(f"Stitching images {i} and {i+1}")
+                print(f"Stitching images {i} and {i+1}")
                 stitched_image, num_matches, current_stitch_transform = stitch_two_images(current_images[i], current_images[i+1], disp)
 
                 if disp and num_matches <= min_matches:
                     display_original_merged(current_images[i], current_images[i+1], stitched_image, i, output_folder)
-                    logging.info(f"Too few number of matches, stopped stitching: {num_matches}")
+                    print(f"Too few number of matches, stopped stitching: {num_matches}")
                     return current_images, all_transform_matrices, full_frames_list
                 else:
                     next_round.append(stitched_image)
@@ -323,7 +323,7 @@ def stitch_images_in_pairs(image_list, frames_list, disp):
 
                 i += 2
             else:
-                logging.info(f"Carrying forward the last image {i}")
+                print(f"Carrying forward the last image {i}")
                 next_round.append(current_images[i])
                 next_frames_list.append(current_frames_list[i])  # Carry forward its range
                 i += 1
@@ -338,7 +338,7 @@ def stitch_images_in_pairs(image_list, frames_list, disp):
 
 def stitch_images_pair_combos(image_list, disp): # add frames_list, transform_matrices later
     if len(image_list) < 2:
-        logging.info("Not enough images to stitch.")
+        print("Not enough images to stitch.")
         return image_list, None
     
     i = 0

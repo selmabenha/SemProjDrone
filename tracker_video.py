@@ -2,18 +2,19 @@ import cv2
 import os
 import logging
 
-logging.basicConfig(
-    level=logging.DEBUG,  # Set the minimum level of messages to capture
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("logs/script.log"),  # Write logs to this file
-        logging.StreamHandler()  # Optionally, also log to console
-    ]
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,  # Set the minimum level of messages to capture
+#     format='%(asctime)s - %(levelname)s - %(message)s',
+#     handlers=[
+#         logging.FileHandler("logs/script.log"),  # Write logs to this file
+#         logging.StreamHandler()  # Optionally, also log to console
+#     ]
+# )
+reference_frames = [1, 300, 550, 800, 1050, 1300, 1550, 1800, 2050, 2350, 2600, 2900, 3200, 3500, 3800, 4100, 4350, 4600, 4900, 5150, 5400, 5650, 6050, 6300, 6550, 6800, 7517]
 
 def load_tracking_from_file(frame_number):
     """Load trackers from the specified file."""
-    folder = "/home/finette/VideoStitching/transform_small"
+    folder = "/Users/selmabenhassine/Desktop/SemProjDrone/DJI_0763_tracking"
     file_name = f"track_fr_{frame_number}.txt"
     file_path = os.path.join(folder, file_name)
 
@@ -38,23 +39,24 @@ def load_tracking_from_file(frame_number):
     return trackers
 
 def generate_trackers_video():
-    map_path = "/home/finette/VideoStitching/selma/output/images/test_transform/final_stitched_image.jpg"
+    map_path = "/Users/selmabenhassine/Desktop/SemProjDrone/extracted_frames"
     # Load the map image to get frame width and height
-    map_image = cv2.imread(map_path)
+    map_image = cv2.imread(f"{map_path}/frame_0001.jpg")
+    map_image_index = 1
     if map_image is None:
-        logging.info(f"Error loading map image: {map_path}")
+        print(f"Error loading map image: {map_path}")
         return
     
     frame_width, frame_height = map_image.shape[1], map_image.shape[0]
     fps = 30  # Set a default FPS
     
-    logging.info(f"Using map image properties - Width: {frame_width}, Height: {frame_height}, FPS: {fps}")
+    print(f"Using map image properties - Width: {frame_width}, Height: {frame_height}, FPS: {fps}")
 
     # Initialize the VideoWriter to save the output
-    output_path = '/home/finette/VideoStitching/selma/output/tracked_output_mini_transform_small.mp4'
+    output_path = '/Users/selmabenhassine/Desktop/SemProjDrone/output/tracked_pix.mov'
     out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'MP4V'), fps, (frame_width, frame_height))
     if not out.isOpened():
-        logging.info(f"Error: Could not open VideoWriter for the output file {output_path}")
+        print(f"Error: Could not open VideoWriter for the output file {output_path}")
         return
 
     # Initialize frame count
@@ -62,11 +64,18 @@ def generate_trackers_video():
 
     while True:
         frame_number = f"{frame_count:04d}"
+        if frame_count == 1717: 
+            print("Done")
+            break
+        if frame_count != 1 and frame_count == reference_frames[map_image_index]:
+            new_map_path = f"{map_path}/frame_{frame_number}.jpg"
+            map_image = cv2.imread(new_map_path)
+            map_image_index += 1
+            print(f"new map image path is {new_map_path}")
         try:
             trackers = load_tracking_from_file(frame_number)
-            logging.info(f"trackers for frame {frame_number} found: {len(trackers)} trackers")
         except FileNotFoundError as e:
-            logging.info(f"Warning: {e}")
+            print(f"Warning: {e}")
             trackers = []
 
         # Draw tracking data on the frame
@@ -83,40 +92,40 @@ def generate_trackers_video():
 
         # Log progress for debugging
         if frame_count % 100 == 0:
-            logging.info(f"Processed {frame_count} frames...")
+            print(f"Processed {frame_count} frames...")
 
         # Wait for 30ms and break on 'Esc' key press
         key = cv2.waitKey(30)
         if key == 27:  # Esc key
-            logging.info("Esc key pressed, stopping video processing.")
+            print("Esc key pressed, stopping video processing.")
             break
 
         frame_count += 1
 
         # Stop if there are no more trackers for further frames
         if len(trackers) == 0:
-            logging.info("No trackers for this frame, stopping video processing.")
+            print("No trackers for this frame, stopping video processing.")
             break
 
     # Release resources
     out.release()
     cv2.destroyAllWindows()
 
-    logging.info(f"Video processing completed. Output saved as '{output_path}'.")
+    print(f"Video processing completed. Output saved as '{output_path}'.")
 
     # Verify the output file
     if os.path.exists(output_path):
-        logging.info(f"Output video file '{output_path}' exists.")
+        print(f"Output video file '{output_path}' exists.")
         try:
             test_cap = cv2.VideoCapture(output_path)
             if test_cap.isOpened():
-                logging.info(f"Successfully opened the output video '{output_path}' for verification.")
+                print(f"Successfully opened the output video '{output_path}' for verification.")
             else:
-                logging.info(f"Error: Output video '{output_path}' could not be opened.")
+                print(f"Error: Output video '{output_path}' could not be opened.")
             test_cap.release()
         except Exception as e:
-            logging.info(f"Error verifying the output video: {e}")
+            print(f"Error verifying the output video: {e}")
     else:
-        logging.info(f"Error: Output video file '{output_path}' does not exist.")
+        print(f"Error: Output video file '{output_path}' does not exist.")
 
 generate_trackers_video()
