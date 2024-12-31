@@ -49,11 +49,15 @@ images_cv, frame_ranges = get_images_frames(image_paths)
 # Traditional way
 result_cv, all_transform_matrices, full_frames_recording = stitch_images_in_pairs(images_cv, frame_ranges, True)
 
+crop_test = []
 transform_matrix = []
 # Last ditch, check everything
 while transform_matrix is not None:
-    result_cv, transform_matrix = stitch_images_pair_combos(result_cv, True)
-    all_transform_matrices.append(transform_matrix)
+    result_cv, crop_test_it = stitch_images_pair_combos(result_cv, True)
+    crop_test.append(crop_test_it)
+    # all_transform_matrices.append(transform_matrix)
+
+print(crop_test)
 
 # i = 0
 # while len(result_cv) != 1 and i < 3:
@@ -77,7 +81,7 @@ if all_transform_matrices is not None:
     logging.info(f"All transform matrices = {all_transform_matrices}")
     logging.info(f"full_frames_recording = {full_frames_recording}")
 
-if len(result_cv) == 1:
+if len(result_cv) == 1 or len(result_cv) >= 50:
     result_cv = result_cv[0]
     # Assuming base_image_cv is your final stitched image
     height, width, _ = result_cv.shape  # Get image dimensions

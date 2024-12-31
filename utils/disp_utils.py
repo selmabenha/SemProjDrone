@@ -1,5 +1,5 @@
-from lightglue import LightGlue, SuperPoint, DISK, SIFT, DoGHardNet
-from lightglue.utils import load_image, rbd
+# from lightglue import LightGlue, SuperPoint, DISK, SIFT, DoGHardNet
+# from lightglue.utils import load_image, rbd
 from lightglue import viz2d
 import logging
 import cv2
