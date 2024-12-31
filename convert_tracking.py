@@ -38,21 +38,19 @@ import pandas as pd
 def frame_pix_displacement(index, tracking_files):
     global index_ref
     if index == 0:
-        return [0.0]
+        return [(0.0, 0.0)]
     elif index == reference_frames[index_ref+1] and index != 1:
         index_ref += 1
-        return [0.0]
+        return [(0.0, 0.0)]
     else:
         # Load the points for the current and reference frames
-        points_ref_path = Path(tracking_files[reference_frames[index_ref]])
-        points_path = Path(tracking_files[index])
         points_ref = load_track_points(Path(tracking_files[reference_frames[index_ref]]))
         points = load_track_points(Path(tracking_files[index]))
         if points_ref is None and points is None: raise ValueError("Issue with loading track points both")
         elif points is None: raise ValueError("Issue with loading track points")
         elif points_ref is None: raise ValueError("Issue with loading track points_ref")
         # Extract only the y-coordinates for points with matching class_id
-        y_displacements = []  # List to store the displacements
+        xy_displacements = []  # List to store the displacements
         for point in points:
             coords, metadata = point
             class_id = metadata[1].strip()  # Extract class_id from current point
@@ -63,60 +61,76 @@ def frame_pix_displacement(index, tracking_files):
                 class_id_ref = metadata_ref[1].strip()  # Extract class_id_ref from reference point
                 
                 if class_id == class_id_ref:  # Check if class_id matches class_id_ref
-                    y_disp = coords[:, 1] - coords_ref[:, 1]  # Compute displacement
+                    y_disp = coords[:, 1] - coords_ref[:, 1]  # Compute y displacement
+                    x_disp = coords[:, 0] - coords_ref[:, 0]  # Compute x displacement
                     if y_disp.size == 0: raise ValueError("y_disp.size == 0")
+                    if x_disp.size == 0: raise ValueError("x_disp.size == 0")
                     y_disp_mean = np.mean(y_disp)  # Calculate the mean displacement
-                    y_displacements.append(y_disp_mean)  # Append the displacement to the list
+                    x_disp_mean = np.mean(x_disp)  # Calculate the mean displacement
+                    xy_displacements.append((x_disp_mean, y_disp_mean))  # Append the displacement to the list
                     break  # Exit the loop after finding the first match for this class_id
             else:
                 # If no matching class_id_ref is found, append None (optional)
-                y_displacements.append(None)
+                xy_displacements.append((None,None))
 
-        return y_displacements
+        return xy_displacements
     
 def all_frames_pix_displacement(tracking_files):
-    # Iterate over the tracking files
-    all_y_pix_displacement = [frame_pix_displacement(index, tracking_files) 
-                            for index, _ in enumerate(tracking_files)]
-
-    all_y_pix_median = [np.median(
-                        [val for val in frame_disp if val is not None]) 
-                        for frame_disp in all_y_pix_displacement]
-
-    # Replace None values in all_y_pix_displacement with the corresponding median
-    all_y_pix_displacement_median = [
-        [
-            val if val is not None else all_y_pix_median[frame_index]
-            for val in frame_disp
-        ]
-        for frame_index, frame_disp in enumerate(all_y_pix_displacement)
+    # Get all x and y displacements
+    all_xy_pix_displacement = [
+        frame_pix_displacement(index, tracking_files) 
+        for index, _ in enumerate(tracking_files)
     ]
 
-    return all_y_pix_displacement_median
+    # Separate x and y displacements and compute their medians
+    all_x_pix_median = [
+        np.median([val[0] for val in frame_disp if val is not None and val[0] is not None]) 
+        for frame_disp in all_xy_pix_displacement
+    ]
 
-def extract_pix_displacement(displacement_file):
-    # Read the CSV file
-    df = pd.read_csv(f"{displacement_file}")
-    
-    # Access the 'pix_med_displacement_vector_wrt_ref' column and convert it to a NumPy array
-    pix_displacement = df['pix_displacement_wrt_ref'].to_numpy()
-    
-    # Return the array (optional)
-    return pix_displacement
+    all_y_pix_median = [
+        np.median([val[1] for val in frame_disp if val is not None and val[1] is not None]) 
+        for frame_disp in all_xy_pix_displacement
+    ]
 
-def remove_drone_displacement(tracking_folder, displacement_file):
-    pix_displacement = extract_pix_displacement(displacement_file)
-    tracking_files = list(tracking_folder.glob("*.txt"))
-    for track_path, pix_dist in zip(tracking_files, pix_displacement):
-        points = load_track_points(str(track_path))
-        modified_points = []
-        for coords, metadata in points:
-            # print(f"coords original = {coords}")
-            # print(f"pix_dist = {pix_dist}")
-            coords[:, 1] += pix_dist/10  # Add pix_dist to the y-values
-            # print(f"coords after = {coords}")
-            modified_points.append((coords, metadata))  # Reconstruct the tuple
-        save_track_points(str(track_path), modified_points)
+    # Replace None values in all_xy_pix_displacement with the corresponding medians
+    all_xy_pix_displacement_median = [
+        [
+            (
+                val[0] if val is not None and val[0] is not None else all_x_pix_median[frame_index],
+                val[1] if val is not None and val[1] is not None else all_y_pix_median[frame_index]
+            )
+            for val in frame_disp
+        ]
+        for frame_index, frame_disp in enumerate(all_xy_pix_displacement)
+    ]
+
+    return all_xy_pix_displacement_median
+
+
+# def extract_pix_displacement(displacement_file):
+#     # Read the CSV file
+#     df = pd.read_csv(f"{displacement_file}")
+    
+#     # Access the 'pix_med_displacement_vector_wrt_ref' column and convert it to a NumPy array
+#     pix_displacement = df['pix_displacement_wrt_ref'].to_numpy()
+    
+#     # Return the array (optional)
+#     return pix_displacement
+
+# def remove_drone_displacement(tracking_folder, displacement_file):
+#     pix_displacement = extract_pix_displacement(displacement_file)
+#     tracking_files = list(tracking_folder.glob("*.txt"))
+#     for track_path, pix_dist in zip(tracking_files, pix_displacement):
+#         points = load_track_points(str(track_path))
+#         modified_points = []
+#         for coords, metadata in points:
+#             # print(f"coords original = {coords}")
+#             # print(f"pix_dist = {pix_dist}")
+#             coords[:, 1] += pix_dist/10  # Add pix_dist to the y-values
+#             # print(f"coords after = {coords}")
+#             modified_points.append((coords, metadata))  # Reconstruct the tuple
+#         save_track_points(str(track_path), modified_points)
 
 def remove_pix_displacement(tracking_folder):
     tracking_files = list(tracking_folder.iterdir())
@@ -126,7 +140,8 @@ def remove_pix_displacement(tracking_folder):
         points = load_track_points(str(track_path))
         modified_points = []
         for (coords, metadata), displacement in zip(points, frame_displacements):
-            coords[:, 1] -= displacement  # Add pix_dist to the y-values
+            coords[:, 0] -= displacement[0]
+            coords[:, 1] -= displacement[1]  # Subtract pix_dist from the x and y-values
             modified_points.append((coords, metadata))  # Reconstruct the tuple
         save_track_points(str(track_path), modified_points)
 

@@ -30,7 +30,7 @@ extractor = DoGHardNet(max_num_keypoints=None).eval().to(device)  # load the ext
 matcher = LightGlue(features="doghardnet").eval().to(device)
 
 
-output_folder = "/home/finette/VideoStitching/selma/output/images/base_out"
+output_folder = "/Users/selmabenhassine/Desktop/SemProjDrone/output/images/base_out"
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 ### Revelant Functions

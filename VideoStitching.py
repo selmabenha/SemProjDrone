@@ -33,9 +33,9 @@ logging.info("Script started - main")
 
 
 torch.set_grad_enabled(False)
-images = Path("/home/finette/VideoStitching/selma/extracted_frames")
+images = Path("/Users/selmabenhassine/Desktop/SemProjDrone/extracted_frames")
 
-output_images = "/home/finette/VideoStitching/selma/output/images/base_out"
+output_images = "/Users/selmabenhassine/Desktop/SemProjDrone/output/images/base_out"
 if not os.path.exists(output_images):
     os.makedirs(output_images)
 

@@ -53,7 +53,7 @@ def generate_trackers_video():
     print(f"Using map image properties - Width: {frame_width}, Height: {frame_height}, FPS: {fps}")
 
     # Initialize the VideoWriter to save the output
-    output_path = '/Users/selmabenhassine/Desktop/SemProjDrone/output/tracked_pix.mov'
+    output_path = '/Users/selmabenhassine/Desktop/SemProjDrone/output/tracked_pix_xy.mov'
     out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'MP4V'), fps, (frame_width, frame_height))
     if not out.isOpened():
         print(f"Error: Could not open VideoWriter for the output file {output_path}")
