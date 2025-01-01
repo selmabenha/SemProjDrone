@@ -34,7 +34,8 @@ logging.info("Script started - main")
 
 torch.set_grad_enabled(False)
 # images = Path("/home/finette/VideoStitching/selma/extracted_frames")
-images = Path("/home/finette/VideoStitching/selma/output/images/trad_final")
+# images = Path("/home/finette/VideoStitching/selma/output/images/trad_final")
+images = Path("/home/finette/VideoStitching/selma/test/test_imgs")
 
 output_images = "/home/finette/VideoStitching/selma/output/images"
 if not os.path.exists(output_images):
@@ -45,74 +46,75 @@ if not os.path.exists(output_images):
 
 image_paths = sorted(list(images.glob("*.jpg")))  # Adjust this to the path of your images
 
-images_cv, frame_ranges = get_images_frames(image_paths)
+images_cv, frame_list = get_images_frames(image_paths, 1299)
 
 # Traditional way
-# result_cv, all_transform_matrices, full_frames_recording = stitch_images_in_pairs(images_cv, frame_ranges, True)
+stitching_log = []
+result_cv, frame_list, stitching_log = stitch_images_in_pairs(images_cv, frame_list, stitching_log, True)
 
-# logging.info(f"Amount of images at end of traditional way = {len(result_cv)}")
+
+logging.info(f"Amount of images at end of traditional way = {len(result_cv)}")
 # Save all images in result_cv
-# for i, img_cv in enumerate(result_cv):
-#     output_filename = os.path.join(output_images, f"final_trad_{i}.jpg")
-#     try:
-#         if not cv2.imwrite(output_filename, img_cv):
-#             logging.info(f"Error saving image {output_filename} using OpenCV.")
-#             try:
-#                 img = Image.fromarray(img_cv)
-#                 img.save(output_filename)
-#                 logging.info(f"Image {i} saved successfully to {output_filename}")
-#             except Exception as e:
-#                 logging.info(f"Error saving image {output_filename} with PIL: {e}")
-#         else:
-#             logging.info(f"Image {i} saved successfully to {output_filename} using OpenCV")
-#     except Exception as e:
-#         logging.info(f"Unexpected error saving image {output_filename}: {e}")
+for i, img_cv in enumerate(result_cv):
+    output_filename = os.path.join(output_images, f"final_trad_{i}.jpg")
+    try:
+        if not cv2.imwrite(output_filename, img_cv):
+            logging.info(f"Error saving image {output_filename} using OpenCV.")
+            try:
+                img = Image.fromarray(img_cv)
+                img.save(output_filename)
+                logging.info(f"Image {i} saved successfully to {output_filename}")
+            except Exception as e:
+                logging.info(f"Error saving image {output_filename} with PIL: {e}")
+        else:
+            logging.info(f"Image {i} saved successfully to {output_filename} using OpenCV")
+    except Exception as e:
+        logging.info(f"Unexpected error saving image {output_filename}: {e}")
 
 
-# if all_transform_matrices is not None: 
-#     write_images_frames(full_frames_recording, all_transform_matrices)
-#     logging.info(f"All transform matrices trad way = {all_transform_matrices}")
-#     logging.info(f"full_frames_recording trad way = {full_frames_recording}")
-
-
+if stitching_log: 
+    write_stitching_log(stitching_log)
+    logging.info(f"Stitching log saved! {stitching_log}")
 
 
 
 
 
-# New Way
-result_cv = images_cv
-print(f"first stitching result, we are left with {len(result_cv)} images")
-# Main stitching loop
-crop_test = []
-transform_matrix = [0]
-prev_len = len(result_cv)  # Track progress by checking the length of the image list
 
-while True:
-    result_cv, crop_test_it, transform_matrix = stitch_images_pair_combos(result_cv, True)
-    crop_test.append(crop_test_it)
 
-    # Check if progress was made
-    current_len = len(result_cv)
-    if current_len == prev_len:
-        print("No further progress possible. Exiting loop.")
-        break  # Exit if no progress is made
-    prev_len = current_len  # Update previous length
-    # all_transform_matrices.append(transform_matrix)
-
-print(f"Stitch images pair combos with zoom, we are left with {len(result_cv)} images")
-print(f"crop test is = {crop_test}")
-
+# # New Way
+# result_cv = images_cv
+# print(f"first stitching result, we are left with {len(result_cv)} images")
+# # Main stitching loop
 # crop_test = []
 # transform_matrix = [0]
-# # Last ditch, check everything
-# while transform_matrix is not None:
+# prev_len = len(result_cv)  # Track progress by checking the length of the image list
+
+# while True:
 #     result_cv, crop_test_it, transform_matrix = stitch_images_pair_combos(result_cv, True)
 #     crop_test.append(crop_test_it)
+
+#     # Check if progress was made
+#     current_len = len(result_cv)
+#     if current_len == prev_len:
+#         print("No further progress possible. Exiting loop.")
+#         break  # Exit if no progress is made
+#     prev_len = current_len  # Update previous length
 #     # all_transform_matrices.append(transform_matrix)
 
-# print(f"Stitch images pair combos #2, we are left with {len(result_cv)} images")
+# print(f"Stitch images pair combos with zoom, we are left with {len(result_cv)} images")
 # print(f"crop test is = {crop_test}")
+
+# # crop_test = []
+# # transform_matrix = [0]
+# # # Last ditch, check everything
+# # while transform_matrix is not None:
+# #     result_cv, crop_test_it, transform_matrix = stitch_images_pair_combos(result_cv, True)
+# #     crop_test.append(crop_test_it)
+# #     # all_transform_matrices.append(transform_matrix)
+
+# # print(f"Stitch images pair combos #2, we are left with {len(result_cv)} images")
+# # print(f"crop test is = {crop_test}")
 
 if len(result_cv) == 1 or len(result_cv) >= 50:
     result_cv = result_cv[0]

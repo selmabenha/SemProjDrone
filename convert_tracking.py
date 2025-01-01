@@ -120,6 +120,54 @@ def remove_pix_displacement(tracking_folder):
         save_track_points(str(track_path), modified_points)
     print("drone displacement accounted for")
 
+def transform_trackbb_tostitch(base_folder, stitching_log):
+    """
+    Process the stitching iterations using the stitching log.
+
+    Args:
+        base_folder (str): Path to the base folder containing track files.
+        stitching_log (list): Log of stitching operations with frame indices and transformation matrices.
+    """
+    for entry in stitching_log:
+        operation_id = entry["operation_id"]
+        input_frames = entry["input_frames"]
+        result_frame = entry["result_frame"]
+        transformation_matrices = entry["transformation_matrices"]
+
+        print(f"Processing {operation_id}...")
+
+        # Extract frame ranges and transformation matrices
+        frame_a_indices = input_frames[0]["frame_indices"]
+        frame_b_indices = input_frames[1]["frame_indices"]
+        H, T, R, S = transformation_matrices
+
+        # Process A points
+        for frame in frame_a_indices:
+            frame_path = f"{base_folder}/track_fr_{frame:04d}.txt"
+            points = load_track_points(frame_path)
+
+            # Transform all points at once using transform_first_points
+            modified_points = [
+                (transform_first_points(point_set, H, T, R, S), metadata)
+                for point_set, metadata in points
+            ]
+            save_track_points(frame_path, modified_points)
+
+        # Process B points
+        for frame in frame_b_indices:
+            frame_path = f"{base_folder}/track_fr_{frame:04d}.txt"
+            points = load_track_points(frame_path)
+
+            # Transform all points at once using transform_second_points
+            modified_points = [
+                (transform_second_points(point_set, H, T, R, S), metadata)
+                for point_set, metadata in points
+            ]
+            save_track_points(frame_path, modified_points)
+
+        print(f"  Completed processing for {operation_id}.")
+
+
 def process_iterations_with_matrices(full_frames_list, base_folder, transformation_matrices):
     for iteration, (frame_ranges, matrices) in enumerate(zip(full_frames_list, transformation_matrices), 1):
         print(f"Processing Iteration {iteration}...")
@@ -162,6 +210,7 @@ def process_iterations_with_matrices(full_frames_list, base_folder, transformati
             print(f"  Skipping iteration {iteration + 1} as it has no valid pairs.")
             break
 
-# remove_pix_displacement(tracking_folder)
-frame_ranges, transformation_matrices = read_images_frames(frames_file, transforms_file)
-process_iterations_with_matrices(frame_ranges, str(tracking_folder), transformation_matrices)
+remove_pix_displacement(tracking_folder)
+# frame_ranges, transformation_matrices = read_images_frames(frames_file, transforms_file)
+# process_iterations_with_matrices(frame_ranges, str(tracking_folder), transformation_matrices)
+transform_trackbb_tostitch(tracking_folder, read_stitching_log)

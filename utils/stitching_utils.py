@@ -9,7 +9,8 @@ import cv2
 import gc
 import os
 import logging
-from .disp_utils import *
+from utils.files_utils import *
+from utils.disp_utils import *
 
 from PIL import Image
 
@@ -292,53 +293,133 @@ def stitch_two_images(first_cv, second_cv, disp):
 
 # COMMENT # COMMENT # COMMENT
 
-def stitch_images_in_pairs(image_list, frames_list, disp):
+def stitch_images_in_pairs(image_list, frames_list, stitching_log, disp):
     if len(image_list) < 2:
         logging.info("Not enough images to stitch.")
-        return image_list, frames_list, None
+        print("Not enough images to stitch.")
+        return image_list, frames_list, stitching_log
 
     current_images = image_list
     current_frames_list = frames_list
-    full_frames_list = [current_frames_list]
-    all_transform_matrices = []
+
+    operation_counter = 1  # Initialize operation counter for operation IDs
+
+    iteration = 1  # Track iteration number for debugging
 
     while len(current_images) > 1:
-        logging.info(f"Stitching {len(current_images)} images...")
+        logging.info(f"Iteration {iteration}: Stitching {len(current_images)} images...")
+        print(f"Iteration {iteration}: Stitching {len(current_images)} images...")
+        
+        # Debugging: Print lengths of current images and frames
+        print(f"  Number of images: {len(current_images)}")
+        print(f"  Number of frame ranges: {len(current_frames_list)}")
+        assert len(current_images) == len(current_frames_list), "Mismatch in current_images and current_frames_list lengths!"
+
         next_round = []
         next_frames_list = []
-        current_round_transform = []
 
         i = 0
         while i < len(current_images):
             if i + 1 < len(current_images):
-                logging.info(f"Stitching images {i} and {i+1}")
+                logging.info(f"  Stitching images {i} and {i+1}")
+                print(f"  Stitching images {i} and {i+1}: Frames {current_frames_list[i]['indices']} + {current_frames_list[i + 1]['indices']}")
+
+                # Perform stitching
                 stitched_image, num_matches, current_stitch_transform = stitch_two_images(current_images[i], current_images[i+1], disp)
 
+                # Check if stitching succeeded
                 if disp and num_matches <= min_matches:
                     display_original_merged(current_images[i], current_images[i+1], stitched_image, i, output_folder)
-                    logging.info(f"Too few number of matches, stopped stitching: {num_matches}")
-                    return current_images, all_transform_matrices, full_frames_list
+                    logging.info(f"  Too few matches, stopped stitching: {num_matches}")
+                    print(f"  Too few matches, stopped stitching: {num_matches}")
+                    return current_images, current_frames_list, stitching_log
                 else:
+                    # Add stitched image to next round
                     next_round.append(stitched_image)
-                    current_round_transform.append(current_stitch_transform)
 
                     # Merge frame ranges
-                    new_frame_range = (current_frames_list[i][0], current_frames_list[i+1][1])
+                    new_frame_range = {
+                        "indices": list(range(current_frames_list[i]["indices"][0], current_frames_list[i+1]["indices"][-1] + 1))
+                    }
                     next_frames_list.append(new_frame_range)
+
+                    # Log the stitching operation
+                    operation_id = f"operation_{operation_counter:03d}"
+                    stitching_log = log_stitching(stitching_log, operation_id, current_frames_list[i], current_frames_list[i+1], new_frame_range, current_stitch_transform)
+                    print(f"  Logged operation {operation_id}: Frames {new_frame_range['indices']}")
+                    operation_counter += 1  # Increment operation ID
 
                 i += 2
             else:
-                logging.info(f"Carrying forward the last image {i}")
+                logging.info(f"  Carrying forward the last image {i}")
+                print(f"  Carrying forward the last image {i}: Frames {current_frames_list[i]['indices']}")
                 next_round.append(current_images[i])
                 next_frames_list.append(current_frames_list[i])  # Carry forward its range
                 i += 1
 
-        all_transform_matrices.append(current_round_transform)
-        full_frames_list.append(next_frames_list)
+        # Debugging: Print next round details
+        print(f"  Next round images: {len(next_round)}")
+        print(f"  Next round frame ranges: {len(next_frames_list)}")
+        assert len(next_round) == len(next_frames_list), "Mismatch in next_round and next_frames_list lengths!"
+
         current_images = next_round
         current_frames_list = next_frames_list
+        iteration += 1
 
-    return current_images, all_transform_matrices, full_frames_list
+    # Debugging: Print final results
+    print(f"Final stitched image count: {len(current_images)}")
+    print(f"Final frame ranges count: {len(current_frames_list)}")
+    return current_images, current_frames_list, stitching_log
+
+
+
+# def stitch_images_in_pairs(image_list, frames_list, stitching_log, disp):
+#     if len(image_list) < 2:
+#         logging.info("Not enough images to stitch.")
+#         return image_list, frames_list, None
+
+#     current_images = image_list
+#     current_frames_list = frames_list
+#     full_frames_list = [current_frames_list]
+#     operation_counter = 1
+
+#     while len(current_images) > 1:
+#         logging.info(f"Stitching {len(current_images)} images...")
+#         next_round = []
+#         next_frames_list = []
+#         current_round_transform = []
+
+#         i = 0
+#         while i < len(current_images):
+#             if i + 1 < len(current_images):
+#                 logging.info(f"Stitching images {i} and {i+1}")
+#                 stitched_image, num_matches, current_stitch_transform = stitch_two_images(current_images[i], current_images[i+1], disp)
+
+#                 if disp and num_matches <= min_matches:
+#                     display_original_merged(current_images[i], current_images[i+1], stitched_image, i, output_folder)
+#                     logging.info(f"Too few number of matches, stopped stitching: {num_matches}")
+#                     return current_images, all_transform_matrices, full_frames_list
+#                 else:
+#                     next_round.append(stitched_image)
+#                     current_round_transform.append(current_stitch_transform)
+
+#                     # Merge frame ranges
+#                     new_frame_range = (current_frames_list[i][0], current_frames_list[i+1][1])
+#                     next_frames_list.append(new_frame_range)
+
+#                 i += 2
+#             else:
+#                 logging.info(f"Carrying forward the last image {i}")
+#                 next_round.append(current_images[i])
+#                 next_frames_list.append(current_frames_list[i])  # Carry forward its range
+#                 i += 1
+
+#         all_transform_matrices.append(current_round_transform)
+#         full_frames_list.append(next_frames_list)
+#         current_images = next_round
+#         current_frames_list = next_frames_list
+
+#     return current_images, all_transform_matrices, full_frames_list
 
 
 def validate_images(image_list):
