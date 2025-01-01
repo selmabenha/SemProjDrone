@@ -352,7 +352,7 @@ def transform_first_points(points, H, T, R, S):
     H,T,R,S = np.array(H),np.array(T),np.array(R),np.array(S)
 
     # Scaling applied to pointsA
-    points_scaled = points #/ S[0]
+    points_scaled = points / S[0]
     # Homography transformation (H) applied to pointsA
     points_homogeneous = np.hstack([points_scaled, np.ones((points_scaled.shape[0], 1))])  # Convert points to homogeneous coordinates
     points_transformed = (H.dot(points_homogeneous.T)).T  # Apply homography matrix H to points
@@ -383,7 +383,7 @@ def transform_second_points(points, H, T, R, S):
     H,T,R,S = np.array(H),np.array(T),np.array(R),np.array(S)
 
     # Scaling applied to pointsB
-    points_scaled = points #/ S[1]
+    points_scaled = points / S[1]
     # Apply rotation (R) to pointsB
     points_homogeneous = np.hstack([points_scaled, np.ones((points_scaled.shape[0], 1))])  # Convert points to homogeneous coordinates
     points_rotated = (R.dot(points_homogeneous.T)).T  # Apply rotation matrix R to points

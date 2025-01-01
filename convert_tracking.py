@@ -25,7 +25,7 @@ import math
 # logging.info("run script - transform")
 
 # Paths
-tracking_folder = Path("/Users/selmabenhassine/Desktop/SemProjDrone/DJI_tracking_short_remdrone")
+tracking_folder = Path("/Users/selmabenhassine/Desktop/SemProjDrone/DJI_tracking_remdrone_short")
 # frames_file = "/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/transform_recording/full_frames_list.txt"
 # transforms_file = "/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/transform_recording/all_transform_matrices.txt"
 
