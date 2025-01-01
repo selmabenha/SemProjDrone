@@ -14,7 +14,7 @@ reference_frames = [1, 300, 550, 800, 1050, 1300, 1550, 1800, 2050, 2350, 2600, 
 
 def load_tracking_from_file(frame_number):
     """Load trackers from the specified file."""
-    folder = "/Users/selmabenhassine/Desktop/SemProjDrone/DJI_0763_tracking"
+    folder = "/Users/selmabenhassine/Desktop/SemProjDrone/DJI_tracking_short"
     file_name = f"track_fr_{frame_number}.txt"
     file_path = os.path.join(folder, file_name)
 
@@ -39,9 +39,11 @@ def load_tracking_from_file(frame_number):
     return trackers
 
 def generate_trackers_video():
-    map_path = "/Users/selmabenhassine/Desktop/SemProjDrone/extracted_frames"
+    # map_path = "/Users/selmabenhassine/Desktop/SemProjDrone/extracted_frames"
+    map_path = "/Users/selmabenhassine/Desktop/SemProjDrone/output/images/base_out/final_stitched_image_05.jpg"
     # Load the map image to get frame width and height
-    map_image = cv2.imread(f"{map_path}/frame_0001.jpg")
+    # map_image = cv2.imread(f"{map_path}/frame_0001.jpg")
+    map_image = cv2.imread(map_path)
     map_image_index = 1
     if map_image is None:
         print(f"Error loading map image: {map_path}")
@@ -53,7 +55,7 @@ def generate_trackers_video():
     print(f"Using map image properties - Width: {frame_width}, Height: {frame_height}, FPS: {fps}")
 
     # Initialize the VideoWriter to save the output
-    output_path = '/Users/selmabenhassine/Desktop/SemProjDrone/output/tracked_pix_xy.mov'
+    output_path = '/Users/selmabenhassine/Desktop/SemProjDrone/output/videos/tracked_pix_xy_05.mov'
     out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'MP4V'), fps, (frame_width, frame_height))
     if not out.isOpened():
         print(f"Error: Could not open VideoWriter for the output file {output_path}")
@@ -67,11 +69,11 @@ def generate_trackers_video():
         if frame_count == 1717: 
             print("Done")
             break
-        if frame_count != 1 and frame_count == reference_frames[map_image_index]:
-            new_map_path = f"{map_path}/frame_{frame_number}.jpg"
-            map_image = cv2.imread(new_map_path)
-            map_image_index += 1
-            print(f"new map image path is {new_map_path}")
+        # if frame_count != 1 and frame_count == reference_frames[map_image_index]:
+        #     new_map_path = f"{map_path}/frame_{frame_number}.jpg"
+        #     map_image = cv2.imread(new_map_path)
+        #     map_image_index += 1
+        #     print(f"new map image path is {new_map_path}")
         try:
             trackers = load_tracking_from_file(frame_number)
         except FileNotFoundError as e:

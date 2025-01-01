@@ -6,7 +6,6 @@
 #SBATCH --mem=300G
 #SBATCH --time=48:00:00
 #SBATCH --output logs/log_%j.log
-#SBATCH --error logs/error_%j.err  # Separate error log
 
 # Activate the virtual environment
 source /home/finette/VideoStitching/selma/selmaEnv/bin/activate

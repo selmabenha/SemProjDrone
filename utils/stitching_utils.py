@@ -2,7 +2,7 @@ from pathlib import Path
 
 from lightglue import LightGlue, SuperPoint, DISK, SIFT, DoGHardNet
 from lightglue.utils import load_image, rbd
-# from lightglue import viz2d
+from lightglue import viz2d
 import torch
 import numpy as np
 import cv2
@@ -30,7 +30,7 @@ extractor = DoGHardNet(max_num_keypoints=None).eval().to(device)  # load the ext
 matcher = LightGlue(features="doghardnet").eval().to(device)
 
 
-output_folder = "/Users/selmabenhassine/Desktop/SemProjDrone/output/images/base_out"
+output_folder = "/home/finette/VideoStitching/selma/output/images/base_out"
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 ### Revelant Functions
@@ -59,6 +59,8 @@ def create_center_mask(image, center_fraction):
 
 # Modify the 'extract_matches' function to move images and tensors to the device
 def extract_matches(image0, image1, center_filter, disp):
+    image0 = convert_cv_to_py(image0)
+    image1 = convert_cv_to_py(image1)
     # # Ensure input images are on the device
     image0 = image0.to(device)
     image1 = image1.to(device)
@@ -82,8 +84,8 @@ def extract_matches(image0, image1, center_filter, disp):
     m_kpts0, m_kpts1 = kpts0[matches[..., 0]], kpts1[matches[..., 1]]
 
     # Plotting - delete later?
-    print(f"{len(m_kpts0)} <= min_matches and {disp}")
-    if len(m_kpts0) <= min_matches and disp:
+    if len(m_kpts0) <= min_matches and len(m_kpts0) >= min_matches/10 and disp:
+        print(f"{len(m_kpts0)} <= min_matches and {disp}")
         display_extracted_matches(matches, image0, image1, m_kpts0, m_kpts1, kpts0, kpts1, matches01, output_folder)
 
     return m_kpts0, m_kpts1
@@ -174,6 +176,8 @@ def transform_images(image0_cv, image1_cv, matches0, matches1, disp):
     all_corners = np.vstack((transformed_corners0, corners1))
     translation_matrix, output_width, output_height = get_translation_matrix(all_corners)
 
+    scale = [[output_width/w1, output_height/h1], [output_width/w2, output_height/h2]]
+
     # Create a full 3x3 translation matrix
     full_translation_matrix = np.eye(3, dtype=np.float32)
     full_translation_matrix[:2, 2] = translation_matrix[:, 2]  # Use only the translation part
@@ -186,7 +190,7 @@ def transform_images(image0_cv, image1_cv, matches0, matches1, disp):
     if disp == True and length_matches < min_matches:
         display_transformed_images(image0_transformed, image1_transformed, length_matches, output_folder)
 
-    return image0_transformed, image1_transformed, H, translation_matrix
+    return image0_transformed, image1_transformed, H, translation_matrix, scale
 
 def merge_images(base_img, to_merge, device):
     base_img = convert_cv_to_py(base_img)
@@ -219,7 +223,7 @@ def convert_cv_to_py(image_cv):
     if image_cv is None:
         raise ValueError("Received None for image_cv in convert_cv_to_py.")
     if not isinstance(image_cv, np.ndarray):
-        logging.info(f"Expected np.ndarray, but got {type(image_cv)} in convert_cv_to_py.")
+        # logging.info(f"Expected np.ndarray, but got {type(image_cv)} in convert_cv_to_py.")
         return image_cv
     if image_cv.ndim != 3 or image_cv.shape[2] != 3:
         raise ValueError(f"Image should have 3 channels (RGB/BGR), got shape: {image_cv.shape}.")
@@ -238,7 +242,6 @@ def convert_py_to_cv(image_py):
     if image_py is None:
         raise ValueError("Received None for image_py in convert_py_to_cv.")
     if not torch.is_tensor(image_py):
-        logging.info(f"Expected tensor, but got {type(image_cv)} in convert_py_to_cv.")
         return image_py
 
     # Ensure the tensor is on CPU and detach if it's part of a computation graph
@@ -270,7 +273,7 @@ def stitch_two_images(first_cv, second_cv, disp):
         logging.info(f"Best angle: {best_angle} and amount of matches: {len(matches0)}")
 
     # Transform images and stitch together
-    first_transformed, second_transformed, H, T = transform_images(first_cv, second_cv, matches0, matches1, disp)
+    first_transformed, second_transformed, H, T, S = transform_images(first_cv, second_cv, matches0, matches1, disp)
     if np.isnan(H).any() or np.isinf(H).any():
         logging.info(f"Invalid homography matrix, skipping.")
         return first_cv
@@ -282,7 +285,8 @@ def stitch_two_images(first_cv, second_cv, disp):
     H_list = H.tolist() if isinstance(H, np.ndarray) else H
     T_list = T.tolist() if isinstance(T, np.ndarray) else T
     R_list = R.tolist() if isinstance(R, np.ndarray) else R
-    transform_matrices = [H_list, T_list, R_list]
+    S_list = S.tolist() if isinstance(S, np.ndarray) else S
+    transform_matrices = [H_list, T_list, R_list, S_list]
 
     return result_cv, len(matches0), transform_matrices
 
@@ -337,14 +341,30 @@ def stitch_images_in_pairs(image_list, frames_list, disp):
     return current_images, all_transform_matrices, full_frames_list
 
 
+def validate_images(image_list):
+    for idx, image in enumerate(image_list):
+        # Check if the element has the 'shape' attribute
+        if not hasattr(image, 'shape'):
+            print(f"Invalid image at index {idx}: {type(image)}")
+            print(f"Content of invalid image: {image}")
+        elif not isinstance(image, np.ndarray):
+            print(f"Image at index {idx} is not a valid NumPy array. Type: {type(image)}")
+        else:
+            print(f"Valid image at index {idx} with shape: {image.shape}")
+
 def stitch_images_pair_combos(image_list, disp): 
     crop_test = []
     if len(image_list) < 2:
-        logging.info("Not enough images to stitch.")
-        return image_list, None
-    
-    for i in range(len(image_list) - 1):
-        for j in range(i + 1, len(image_list)):  # Ensure we don't repeat pairs
+        logging.info("Combos: Not enough images to stitch.")
+        return image_list, crop_test, None
+
+    validate_images(image_list)
+
+    for i in range(len(image_list)):
+        for j in range(len(image_list)):
+            # Skip self-combinations
+            if i == j:
+                continue
             # Stitch two images together
             _, _, matches0, matches1, _, _ = find_best_rotation_matches(image_list[i], image_list[j], 20, disp)
             num_matches = len(matches0)
@@ -353,52 +373,100 @@ def stitch_images_pair_combos(image_list, disp):
                 print(f"Success! Stitched images {i} and {j}, with {num_matches} matches.")
                 # Return the new image list and transformation matrix
                 new_image_list = [image_list[k] for k in range(len(image_list)) if k != i and k != j] + [stitched_image]
-                return new_image_list, current_stitch_transform
+                return new_image_list, crop_test, current_stitch_transform
             else:
-                new_matches0, new_matches1 = zoom_and_test(image_list[i], image_list[j], matches0, matches1, True)
-                crop_test.append([i, j, len(matches0), len(new_matches0)])
-                print(f"Combo {i}, {j}: {num_matches} matches. Too few matches.")
+                print(f"Combo {i}, {j}: {num_matches} matches. Too few matches. Trying zooming...")
+                new_num_matches, result_zoom = zoom_and_stitch(image_list[i], image_list[j], matches0, matches1, True)
+                crop_test.append([i, j, num_matches, new_num_matches])
+                if result_zoom is not None:
+                    new_image_list = [image_list[k] 
+                                      for k in range(len(image_list)) 
+                                      if k != i and k != j] + [result_zoom]
+                    return new_image_list, crop_test, None
+                else:
+                    print(f"Zoom combo {i}, {j}: {new_num_matches} matches. Too few matches. Sorry.")
 
-    print("no combos work, sorry")
-    return image_list, crop_test
+    print("That's the best we can do, sorry!")
+    return image_list, crop_test, None
 
-def get_bounding_box(matches0, matches1, margin=20):
+def get_bounding_box(matches0, matches1, margin=20, image_shape=None):
     """
     Given the matches, return the bounding box around the area with the dense matches.
     The margin is added around the bounding box to ensure enough context around the matches.
-    """
-    # Extract keypoint coordinates (assuming they are in the form (x, y))
-    coords0 = np.array([match.pt for match in matches0])
-    coords1 = np.array([match.pt for match in matches1])
     
+    Args:
+        matches0: Tensor of shape (N, 2), containing the (x, y) coordinates of keypoints in the first image.
+        matches1: Tensor of shape (N, 2), containing the (x, y) coordinates of keypoints in the second image.
+        margin: Integer, the margin to apply around the bounding box.
+        image_shape: Tuple (height, width), optional, to ensure bounding box stays within image bounds.
+    
+    Returns:
+        bbox0: Bounding box (min_x, min_y, max_x, max_y) for the first image.
+        bbox1: Bounding box (min_x, min_y, max_x, max_y) for the second image.
+    """
+    # Ensure matches are numpy arrays
+    coords0 = matches0.cpu().numpy() if isinstance(matches0, torch.Tensor) else np.array(matches0)
+    coords1 = matches1.cpu().numpy() if isinstance(matches1, torch.Tensor) else np.array(matches1)
+
     # Find the min/max coordinates to define a bounding box around the matching points
     min_x0, min_y0 = np.min(coords0, axis=0)
     max_x0, max_y0 = np.max(coords0, axis=0)
     min_x1, min_y1 = np.min(coords1, axis=0)
     max_x1, max_y1 = np.max(coords1, axis=0)
-    
+
     # Apply margin to the bounding box
-    min_x0 = max(min_x0 - margin, 0)  # Ensure we don't go out of image bounds
+    min_x0 = max(min_x0 - margin, 0)
     min_y0 = max(min_y0 - margin, 0)
-    max_x0 = min(max_x0 + margin, matches0[0].image.shape[1])  # Limit to image width
-    max_y0 = min(max_y0 + margin, matches0[0].image.shape[0])  # Limit to image height
-    
+    max_x0 = max_x0 + margin
+    max_y0 = max_y0 + margin
+
     min_x1 = max(min_x1 - margin, 0)
     min_y1 = max(min_y1 - margin, 0)
-    max_x1 = min(max_x1 + margin, matches1[0].image.shape[1])
-    max_y1 = min(max_y1 + margin, matches1[0].image.shape[0])
-    
+    max_x1 = max_x1 + margin
+    max_y1 = max_y1 + margin
+
+    # If image_shape is provided, constrain bounding box to image dimensions
+    if image_shape:
+        height, width = image_shape
+        max_x0 = min(max_x0, width)
+        max_y0 = min(max_y0, height)
+        max_x1 = min(max_x1, width)
+        max_y1 = min(max_y1, height)
+
     return (min_x0, min_y0, max_x0, max_y0), (min_x1, min_y1, max_x1, max_y1)
 
-def zoom_and_test(image0_cv, image1_cv, matches0, matches1, disp, margin=20):
+def zoom_and_stitch(image0_cv, image1_cv, matches0, matches1, disp, margin=20):
+    print("zoom and test")
     # Get the bounding boxes for both images based on matches with margin
     bbox0, bbox1 = get_bounding_box(matches0, matches1, margin)
     
     # Crop the images based on the bounding box to zoom in on the matching area
     cropped_image0 = image0_cv[int(bbox0[1]):int(bbox0[3]), int(bbox0[0]):int(bbox0[2])]
     cropped_image1 = image1_cv[int(bbox1[1]):int(bbox1[3]), int(bbox1[0]):int(bbox1[2])]
-    
-    # Recalculate the matches for the cropped region
-    m_kpts0, m_kpts1 = extract_matches(cropped_image0, cropped_image1, center_filter=True, disp=disp)
+   
+    # Debugging: Print the shapes of cropped images
+    print(f"Cropped Image 0 Shape: {cropped_image0.shape if isinstance(cropped_image0, np.ndarray) else 'Invalid type'}")
+    print(f"Cropped Image 1 Shape: {cropped_image1.shape if isinstance(cropped_image1, np.ndarray) else 'Invalid type'}")
 
-    return m_kpts0, m_kpts1
+    # Debugging: Check if images are empty
+    if cropped_image0.size == 0:
+        print("Cropped Image 0 is empty. Check bounding box coordinates.")
+    if cropped_image1.size == 0:
+        print("Cropped Image 1 is empty. Check bounding box coordinates.")
+
+    # Recalculate the matches for the cropped region
+    crop0, Rcrop1, cm0, cm1, angle, Rc = find_best_rotation_matches(cropped_image0, cropped_image1, 20, disp=True)
+
+    if len(cm0) >= min_matches:
+        Rimage1_cv, Rfull = rotate_image(image1_cv, angle)
+        print(f"test, is Rc == Rfull?")
+        print(f"Rc = {Rc}")
+        print(f"Rc = {Rfull}")
+
+        Timage0, Timage1, H, T, S = transform_images(image0_cv, Rimage1_cv, cm0, cm1, disp)
+
+        result = merge_images(Timage0, Timage1, device)
+        return len(cm0), result
+
+    print(f"zoom failed, {len(cm0)} matches only")
+    return len(cm0), None

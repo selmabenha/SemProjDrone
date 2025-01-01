@@ -8,14 +8,14 @@ import re
 from PIL import Image
 import ast
 
-# logging.basicConfig(
-#     level=logging.DEBUG,  # Set the minimum level of messages to capture
-#     format='%(asctime)s - %(levelname)s - %(message)s',
-#     handlers=[
-#         logging.FileHandler("logs/script.log"),  # Write logs to this file
-#         logging.StreamHandler()  # Optionally, also logging.info to console
-#     ]
-# )
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the minimum level of messages to capture
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("logs/script.log"),  # Write logs to this file
+        logging.StreamHandler()  # Optionally, also logging.info to console
+    ]
+)
 
 def get_images_frames(image_paths):
     # Create a list of tuples (frame_number, image_path)
@@ -23,7 +23,7 @@ def get_images_frames(image_paths):
     images_cv = []
     frame_ranges = []
     # Extract frame numbers and file paths
-    for path in image_paths[0:3]:
+    for path in image_paths:
         match = re.search(r'frame_(\d+)\.jpg', str(path))  # Match the frame number part
         if match:
             frame_number = int(match.group(1))  # Extract the frame number as an integer
@@ -39,7 +39,7 @@ def get_images_frames(image_paths):
 
         # Determine the frame number range for the image
         if i == len(image_with_frame_numbers) - 1:
-            frame_range = (frame_number, 7517)  # Last image, map it to the end CHANGE LATERRRRRRRRRRRRR
+            frame_range = (frame_number, 7516)  # Last image, map it to the end CHANGE LATERRRRRRRRRRRRR
         else:
             frame_range = (frame_number, image_with_frame_numbers[i + 1][0] - 1)  # Normal case
 
@@ -168,10 +168,22 @@ def save_track_points(file_path, data):
             file.write(f"{points_flat}, {metadata_str}\n")
 
 
-def transform_point_A(A, H, translation_matrix, rotation_matrix):
-    # Transform point A (image0)
-    A_homogeneous = np.array([[A]], dtype=np.float32)  # Shape (1, 1, 2)
-    transformed_A = cv2.perspectiveTransform(A_homogeneous, H)  # Apply H
+def transform_first_point(A, H, translation_matrix, rotation_matrix):
+    # Ensure A is a 2D point (x, y)
+    A = np.array([A], dtype=np.float32)  # Shape (1, 2)
+    print(f"A (2D point): {A.shape}")  # Debugging A shape
+
+    # Convert to homogeneous coordinates by adding a third coordinate (1)
+    A_homogeneous = np.hstack([A, np.ones((A.shape[0], 1), dtype=np.float32)])  # Shape (1, 3)
+    print(f"A_homogeneous (homogeneous coordinates): {A_homogeneous.shape}")  # Debugging homogeneous shape
+
+    # Ensure the transformation matrix H is 3x3
+    H = np.array(H, dtype=np.float32)
+    print(f"H (transformation matrix): {H.shape}")  # Debugging H shape
+
+    # Apply perspective transformation (reshape to (1, 1, 3) for a single point)
+    transformed_A = cv2.perspectiveTransform(A_homogeneous.reshape(1, 1, 3), H)  # Apply H
+    print(f"transformed_A (after perspective transform): {transformed_A.shape}")  # Debugging transformed_A shape
 
     # Create full 3x3 translation matrix
     full_translation_matrix = np.eye(3, dtype=np.float32)
@@ -183,7 +195,7 @@ def transform_point_A(A, H, translation_matrix, rotation_matrix):
 
     return final_A.astype(int)
 
-def transform_point_B(B, H, translation_matrix, rotation_matrix):
+def transform_second_point(B, H, translation_matrix, rotation_matrix):
 # Transform point B (image1)
     # Step 1: Rotate point B
     rotated_B = np.dot(rotation_matrix, np.append(B, 1))[:2]  # Apply rotation matrix
@@ -194,3 +206,93 @@ def transform_point_B(B, H, translation_matrix, rotation_matrix):
     final_B = transformed_B_homogeneous[:2]
 
     return final_B.astype(int)
+
+def transform_first_points(points, H, T, R, S):
+    # Convert points to numpy arrays if they are lists
+    points = np.array(points, dtype=np.float32)
+    H,T,R,S = np.array(H),np.array(T),np.array(R),np.array(S)
+
+    # Scaling applied to pointsA
+    points_scaled = points #/ S[0]
+    # Homography transformation (H) applied to pointsA
+    points_homogeneous = np.hstack([points_scaled, np.ones((points_scaled.shape[0], 1))])  # Convert points to homogeneous coordinates
+    points_transformed = (H.dot(points_homogeneous.T)).T  # Apply homography matrix H to points
+    points_transformed = points_transformed[:, :2] / points_transformed[:, 2:3]  # Normalize by the third coordinate (homogeneous division)
+    # # Apply translation (T) to the transformed pointsA
+    points_transformed[:, 0] += T[0, 2]
+    points_transformed[:, 1] += T[1, 2]
+
+    return points_transformed.astype(int)
+
+
+
+def transform_second_points(points, H, T, R, S):
+    """
+    Transforms multiple points using rotation and translation matrices.
+
+    Args:
+        points (list or array): Array of 2D points to be transformed, shape (N, 2).
+        H (ndarray): Homogeneous transformation matrix (3x3), currently unused but preserved for compatibility.
+        translation_matrix (ndarray): Translation matrix (3x3).
+        rotation_matrix (ndarray): Rotation matrix (3x3).
+
+    Returns:
+        ndarray: Transformed points, shape (N, 2).
+    """
+    # Convert points to numpy arrays if they are lists
+    points = np.array(points, dtype=np.float32)
+    H,T,R,S = np.array(H),np.array(T),np.array(R),np.array(S)
+
+    # Scaling applied to pointsB
+    points_scaled = points #/ S[1]
+    # Apply rotation (R) to pointsB
+    points_homogeneous = np.hstack([points_scaled, np.ones((points_scaled.shape[0], 1))])  # Convert points to homogeneous coordinates
+    points_rotated = (R.dot(points_homogeneous.T)).T  # Apply rotation matrix R to points
+    points_transformed = points_rotated #[:, :2] / pointsB_rotated[:, 2:3]  # Normalize by the third coordinate (homogeneous division)
+    # Apply translation (T) to pointsB
+    points_transformed[:, 0] += T[0, 2]
+    points_transformed[:, 1] += T[1, 2]
+    return points_transformed.astype(int)
+
+def transform_points(pointsA, pointsB, H, T, R, S):
+    """
+    Transforms sets of points using a precomputed homography, translation matrix,
+    and rotating the points of the second image using a provided rotation matrix.
+
+    Args:
+        points0 (list or ndarray): Points from the first image, shape (N, 2).
+        points1 (list or ndarray): Points from the second image, shape (M, 2).
+        H (ndarray): Precomputed homography matrix (3x3).
+        translation_matrix (ndarray): Precomputed translation matrix (3x3).
+        rotation_matrix (ndarray): Precomputed rotation matrix (2x3).
+
+    Returns:
+        transformed_points0 (ndarray): Transformed points from image0, shape (N, 2).
+        transformed_points1 (ndarray): Transformed and rotated points from image1, shape (M, 2).
+    """
+    # Convert points to numpy arrays if they are lists
+    pointsA = np.array(pointsA, dtype=np.float32)
+    pointsB = np.array(pointsB, dtype=np.float32)
+    H,T,R,S = np.array(H),np.array(T),np.array(R),np.array(S)
+
+    # Scaling applied to pointsA
+    pointsA_scaled = pointsA #/ S[0]
+    # Homography transformation (H) applied to pointsA
+    pointsA_homogeneous = np.hstack([pointsA_scaled, np.ones((pointsA_scaled.shape[0], 1))])  # Convert points to homogeneous coordinates
+    pointsA_transformed = (H.dot(pointsA_homogeneous.T)).T  # Apply homography matrix H to points
+    pointsA_transformed = pointsA_transformed[:, :2] / pointsA_transformed[:, 2:3]  # Normalize by the third coordinate (homogeneous division)
+    # # Apply translation (T) to the transformed pointsA
+    pointsA_transformed[:, 0] += T[0, 2]
+    pointsA_transformed[:, 1] += T[1, 2]
+
+    # Scaling applied to pointsB
+    pointsB_scaled = pointsB #/ S[1]
+    # Apply rotation (R) to pointsB
+    pointsB_homogeneous = np.hstack([pointsB_scaled, np.ones((pointsB_scaled.shape[0], 1))])  # Convert points to homogeneous coordinates
+    pointsB_rotated = (R.dot(pointsB_homogeneous.T)).T  # Apply rotation matrix R to points
+    pointsB_transformed = pointsB_rotated #[:, :2] / pointsB_rotated[:, 2:3]  # Normalize by the third coordinate (homogeneous division)
+    # Apply translation (T) to pointsB
+    pointsB_transformed[:, 0] += T[0, 2]
+    pointsB_transformed[:, 1] += T[1, 2]
+
+    return pointsA_transformed, pointsB_transformed
