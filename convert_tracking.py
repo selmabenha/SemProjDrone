@@ -25,9 +25,9 @@ import math
 # logging.info("run script - transform")
 
 # Paths
-tracking_folder = Path("/Users/selmabenhassine/Desktop/SemProjDrone/DJI_tracking_short")
-frames_file = "/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/transform_recording/full_frames_list.txt"
-transforms_file = "/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/transform_recording/all_transform_matrices.txt"
+tracking_folder = Path("/Users/selmabenhassine/Desktop/SemProjDrone/DJI_tracking_short_remdrone")
+# frames_file = "/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/transform_recording/full_frames_list.txt"
+# transforms_file = "/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/transform_recording/all_transform_matrices.txt"
 
 reference_frames = [1, 300, 550, 800, 1050, 1300, 1550, 1800, 2050, 2350, 2600, 2900, 3200, 3500, 3800, 4100, 4350, 4600, 4900, 5150, 5400, 5650, 6050, 6300, 6550, 6800, 7517]
 index_ref = 0
@@ -210,7 +210,7 @@ def process_iterations_with_matrices(full_frames_list, base_folder, transformati
             print(f"  Skipping iteration {iteration + 1} as it has no valid pairs.")
             break
 
-remove_pix_displacement(tracking_folder)
+# remove_pix_displacement(tracking_folder)
 # frame_ranges, transformation_matrices = read_images_frames(frames_file, transforms_file)
 # process_iterations_with_matrices(frame_ranges, str(tracking_folder), transformation_matrices)
-transform_trackbb_tostitch(tracking_folder, read_stitching_log)
+transform_trackbb_tostitch(tracking_folder, read_stitching_log())

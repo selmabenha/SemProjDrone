@@ -92,7 +92,7 @@ def log_stitching(stitching_log, operation_id, frame_a, frame_b, result_frame, t
     stitching_log.append(entry)
     return stitching_log
 
-def write_stitching_log(stitching_log, output_dir="/home/finette/VideoStitching/selma/output/textfiles/stitching_log.txt"):
+def write_stitching_log(stitching_log, output_dir="/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/stitching_log.txt"):
     """
     Saves the stitching log to a text file.
     
@@ -125,7 +125,7 @@ def write_stitching_log(stitching_log, output_dir="/home/finette/VideoStitching/
 
 import os
 
-def read_stitching_log(input_dir="/home/finette/VideoStitching/selma/output/textfiles/stitching_log.txt"):
+def read_stitching_log(input_dir="/Users/selmabenhassine/Desktop/SemProjDrone/output/textfiles/stitching_log.txt"):
     """
     Reads the stitching log from a text file and returns the parsed log entries.
     

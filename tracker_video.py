@@ -14,7 +14,7 @@ reference_frames = [1, 300, 550, 800, 1050, 1300, 1550, 1800, 2050, 2350, 2600, 
 
 def load_tracking_from_file(frame_number):
     """Load trackers from the specified file."""
-    folder = "/Users/selmabenhassine/Desktop/SemProjDrone/DJI_tracking_short"
+    folder = "/Users/selmabenhassine/Desktop/SemProjDrone/DJI_tracking_short_remdrone"
     file_name = f"track_fr_{frame_number}.txt"
     file_path = os.path.join(folder, file_name)
 
@@ -40,7 +40,7 @@ def load_tracking_from_file(frame_number):
 
 def generate_trackers_video():
     # map_path = "/Users/selmabenhassine/Desktop/SemProjDrone/extracted_frames"
-    map_path = "/Users/selmabenhassine/Desktop/SemProjDrone/output/images/base_out/final_stitched_image_05.jpg"
+    map_path = "/Users/selmabenhassine/Desktop/SemProjDrone/output/images/final_stitched_image.jpg"
     # Load the map image to get frame width and height
     # map_image = cv2.imread(f"{map_path}/frame_0001.jpg")
     map_image = cv2.imread(map_path)
@@ -55,7 +55,7 @@ def generate_trackers_video():
     print(f"Using map image properties - Width: {frame_width}, Height: {frame_height}, FPS: {fps}")
 
     # Initialize the VideoWriter to save the output
-    output_path = '/Users/selmabenhassine/Desktop/SemProjDrone/output/videos/tracked_pix_xy_05.mov'
+    output_path = '/Users/selmabenhassine/Desktop/SemProjDrone/output/videos/tracked_pixlog_05.mov'
     out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'MP4V'), fps, (frame_width, frame_height))
     if not out.isOpened():
         print(f"Error: Could not open VideoWriter for the output file {output_path}")
