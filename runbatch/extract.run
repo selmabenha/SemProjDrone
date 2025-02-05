@@ -15,6 +15,6 @@ source /home/finette/VideoStitching/selma/selmaEnv/bin/activate
 cd /home/finette/VideoStitching/selma
 
 # Redirect Python output to the log file
-python extract_convert_frames.py > logs/out_%j.out 2>&1
+python extract_frames.py > logs/out_%j.out 2>&1
 
 deactivate

@@ -1,12 +1,5 @@
-# If we are on colab: this clones the repo and installs the dependencies
 from pathlib import Path
-
-# if Path.cwd().name != "LightGlue":
-#     !git clone --quiet https://github.com/cvg/LightGlue/
-#     %cd LightGlue
-#     !pip install --progress-bar off --quiet -e .
-
-from lightglue import LightGlue, SuperPoint, DISK, SIFT
+from lightglue import LightGlue, SuperPoint, DISK, SIFT, DoGHardNet
 from lightglue.utils import load_image, rbd
 from lightglue import viz2d
 import torch
@@ -16,6 +9,7 @@ import cv2
 import gc
 import os
 import logging
+from utils import *
 
 logging.basicConfig(
     level=logging.DEBUG,  # Set the minimum level of messages to capture
@@ -30,15 +24,15 @@ logging.info("Script started - extract")
 
 torch.set_grad_enabled(False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 'mps', 'cpu'
-extractor = DoGHardNet(max_num_keypoints=None).eval().to(device)  # load the extractor
-matcher = LightGlue(features="doghardnet").eval().to(device)
+extractor = SuperPoint(max_num_keypoints=None).eval().to(device)  # load the extractor
+matcher = LightGlue(features="superpoint").eval().to(device)
 
 # Path to video file
-video_path = "/home/finette/VideoStitching/selma/DJI_0763.MOV"
+video_path = "DJI_0763.MOV"
 output_folder = "extracted_frames"
 frame_step = 50
 overlap_threshold = 2000  # Threshold for sufficient overlap
-min_matches = 100  # Threshold for minimal matches before there is a problem
+min_matches = 500  # Threshold for minimal matches before there is a problem
 
 # Create the output directory if it doesn't exist
 if not os.path.exists(output_folder):
@@ -59,11 +53,11 @@ if not success:
     logging.info("Error: Could not open read.")
     exit()
 
-frame_count = 1
+frame_count = 0
 saved_frame_count = 1
 frame_filename = os.path.join(output_folder, f"frame_{frame_count:04d}.jpg")
 cv2.imwrite(frame_filename, prev_frame)
-
+frame_count = 1
 matches_per_frame = []
 # Loop through the video frames
 while True:
@@ -91,12 +85,13 @@ while True:
         new_reduced = cv2.resize(new_cv, (width//2, height//2), interpolation=cv2.INTER_AREA)
 
 
-        _, _, matches0, matches1, best_angle = find_best_rotation_matches(saved_reduced, new_reduced, 20, True)
+        _, _, matches0, matches1, best_angle, R = find_best_rotation_matches(saved_reduced, new_reduced, 20, True)
 
         if len(matches0) <= overlap_threshold and len(matches0) >= min_matches:
             matches_per_frame.append([matches0, matches1, best_angle])
             saved_frame_count += 1
         else:
+            if len(matches0) < min_matches: print(f"remove frame {frame_count}, {len(matches0)} matches!")
             try:
                 os.remove(frame_filename)
             except Exception as e:

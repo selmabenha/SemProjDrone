@@ -1,5 +1,5 @@
-# from lightglue import LightGlue, SuperPoint, DISK, SIFT, DoGHardNet
-# from lightglue.utils import load_image, rbd
+from lightglue import LightGlue, SuperPoint, DISK, SIFT, DoGHardNet
+from lightglue.utils import load_image, rbd
 from lightglue import viz2d
 import logging
 import cv2
@@ -9,18 +9,18 @@ from PIL import Image
 import numpy as np
 import logging
 
-# logging.basicConfig(
-#     level=logging.DEBUG,  # Set the minimum level of messages to capture
-#     format='%(asctime)s - %(levelname)s - %(message)s',
-#     handlers=[
-#         logging.FileHandler("logs/script.log"),  # Write logs to this file
-#         logging.StreamHandler()  # Optionally, also logging.info to console
-#     ]
-# )
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the minimum level of messages to capture
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("logs/script.log"),  # Write logs to this file
+        logging.StreamHandler()  # Optionally, also logging.info to console
+    ]
+)
 
 def display_extracted_matches(matches, image0, image1, m_kpts0, m_kpts1, kpts0, kpts1, matches01, output_folder):
     length_matches = len(m_kpts0)
-    print(f"len(matches) = {length_matches}")
+    logging.info(f"disp extract matches: len(matches) = {length_matches}")
     image0_np = image0.permute(1, 2, 0).cpu().numpy()  # Convert from (C, H, W) to (H, W, C)
     image1_np = image1.permute(1, 2, 0).cpu().numpy()  # Convert from (C, H, W) to (H, W, C)
     
@@ -58,15 +58,15 @@ def display_extracted_matches(matches, image0, image1, m_kpts0, m_kpts1, kpts0, 
     # Step 3: Save the image with matches to disk
     match_image_filename = os.path.join(output_folder, f"matched_keypoints_image_{length_matches}.png")
     if not cv2.imwrite(match_image_filename, canvas):
-        print(f"Error writing extracted features image {match_image_filename}")
+        logging.info(f"Error writing extracted features image {match_image_filename}")
         try:
             img = Image.fromarray(canvas)
             img.save(match_image_filename)
-            print(f"Image saved successfully to {match_image_filename}")
+            logging.info(f"Image saved successfully to {match_image_filename}")
         except Exception as e:
-            print(f"Error saving image {match_image_filename}: {e}")
+            logging.info(f"Error saving image {match_image_filename}: {e}")
     else:
-        print(f"Saved extracted features Image to {match_image_filename}")
+        logging.info(f"Saved extracted features Image to {match_image_filename}")
 
     # Step 4: Create another canvas for pruned keypoints
     canvas_pruned = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
@@ -83,15 +83,15 @@ def display_extracted_matches(matches, image0, image1, m_kpts0, m_kpts1, kpts0, 
     # Step 6: Save the image with pruned keypoints to disk
     pruned_image_filename = os.path.join(output_folder, f"pruned_keypoints_image_{length_matches}.png")
     if not cv2.imwrite(pruned_image_filename, canvas_pruned):
-        print(f"Error writing pruned features image {pruned_image_filename}")
+        logging.info(f"Error writing pruned features image {pruned_image_filename}")
         try:
             img = Image.fromarray(canvas_pruned)
             img.save(pruned_image_filename)
-            print(f"Image saved successfully to {pruned_image_filename}")
+            logging.info(f"Image saved successfully to {pruned_image_filename}")
         except Exception as e:
-            print(f"Error saving image {pruned_image_filename}: {e}")
+            logging.info(f"Error saving image {pruned_image_filename}: {e}")
     else:
-        print(f"Saved pruned features Image to {pruned_image_filename}")
+        logging.info(f"Saved pruned features Image to {pruned_image_filename}")
 
 
 def display_transformed_images(image0_transformed, image1_transformed, length_matches, output_folder):
@@ -115,15 +115,15 @@ def display_transformed_images(image0_transformed, image1_transformed, length_ma
     # Save the transformed canvas (side by side images) to a file
     transformed_filename = os.path.join(output_folder, f"transformed_images_{length_matches}.jpg")
     if not cv2.imwrite(transformed_filename, transformed_canvas):
-        print(f"Error writing image {transformed_filename}")
+        logging.info(f"Error writing image {transformed_filename}")
         try:
             img = Image.fromarray(transformed_canvas)
             img.save(transformed_filename)
-            print(f"Image saved successfully to {transformed_filename}")
+            logging.info(f"Image saved successfully to {transformed_filename}")
         except Exception as e:
-            print(f"Error saving image {transformed_filename}: {e}")
+            logging.info(f"Error saving image {transformed_filename}: {e}")
     else:
-        print(f"Saved transformed images to {transformed_filename}")
+        logging.info(f"Saved transformed images to {transformed_filename}")
 
 
 def display_original_merged(first, second, merged, i, output_folder):
@@ -162,12 +162,53 @@ def display_original_merged(first, second, merged, i, output_folder):
     # Save the combined image
     combined_image_filename = os.path.join(output_folder, f"combined_images_{i}.jpg")
     if not cv2.imwrite(combined_image_filename, combined_image):
-        print(f"Error writing image {combined_image_filename}")
+        logging.info(f"Error writing image {combined_image_filename}")
         try:
             img = Image.fromarray(combined_image)
             img.save(combined_image_filename)
-            print(f"Image saved successfully to {combined_image_filename}")
+            logging.info(f"Image saved successfully to {combined_image_filename}")
         except Exception as e:
-            print(f"Error saving image {combined_image_filename}: {e}")
+            logging.info(f"Error saving image {combined_image_filename}: {e}")
     else:
-        print(f"Saved combined images to {combined_image_filename}")
+        logging.info(f"Saved combined images to {combined_image_filename}")
+
+
+def save_intermediate_images(result_cv, output_images, iteration):
+    if len(result_cv) == 1:
+        result_cv = result_cv[0]
+        # Assuming base_image_cv is your final stitched image
+        height, width, _ = result_cv.shape  # Get image dimensions
+
+        # Save the final stitched image instead of displaying it
+        output_filename = os.path.join(output_images, "final_stitched_image.jpg")
+        if not cv2.imwrite(output_filename, result_cv):
+            logging.info(f"Error saving final stitched image to {output_filename}")
+            try:
+                img = Image.fromarray(result_cv)
+                img.save(output_filename)
+                logging.info(f"Image saved successfully to {output_filename}")
+            except Exception as e:
+                logging.info(f"Error saving image {output_filename}: {e}")
+        else:
+            logging.info(f"Saved final stitched image to {output_filename}")
+
+    else:
+        logging.info(f"This iteration {iteration} amount of images = {len(result_cv)}")
+        # Save all images in result_cv
+        for i, img_cv in enumerate(result_cv):
+            output_filename = os.path.join(output_images, f"iteraction{iteration}_img{i}.jpg")
+            try:
+                if not cv2.imwrite(output_filename, img_cv):
+                    logging.info(f"Error saving image {output_filename} using OpenCV.")
+                    try:
+                        img = Image.fromarray(img_cv)
+                        img.save(output_filename)
+                        logging.info(f"Image {i} saved successfully to {output_filename}")
+                    except Exception as e:
+                        logging.info(f"Error saving image {output_filename} with PIL: {e}")
+                else:
+                    logging.info(f"Image {i} saved successfully to {output_filename} using OpenCV")
+            except Exception as e:
+                logging.info(f"Unexpected error saving image {output_filename}: {e}")
+
+

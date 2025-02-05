@@ -15,8 +15,14 @@ output/videos
 output/.DS_Store
 output/images/.DS_Store
 output/textfiles/.DS_Store
-DJI_0763
+DJI_0763.MOV
+DJI_0763_detection
 DJI_0763_tracking
 DJI_0763_tracking copy
 tracking_small
 utils/__pycache__
+test
+Selma/lightglue
+Selma/selmaEnv
+DJI_0763_tracking_og
+tracked_output.mp4

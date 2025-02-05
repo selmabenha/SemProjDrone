@@ -4,7 +4,12 @@ numpy
 opencv-python
 matplotlib
 kornia>=0.6.11
+scipy
+imageio
+seaborn
+scikit-learn
 
 black==23.12.1
 flake8
 isort
+
